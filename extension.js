@@ -2,7 +2,7 @@ export default {
     onload: ({ extensionAPI }) => {
 
         window.roamAlphaAPI.ui.commandPalette.addCommand({
-            label: "Embed from clipboard",
+            label: "Paste Embed from clipboard",
             callback: () => embedClip()
         });
 
@@ -58,7 +58,7 @@ export default {
     },
     onunload: () => {
         window.roamAlphaAPI.ui.commandPalette.removeCommand({
-            label: 'Embed from clipboard'
+            label: 'Paste Embed from clipboard'
         });
     }
 }
