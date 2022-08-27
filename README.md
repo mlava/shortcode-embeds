@@ -1,6 +1,6 @@
 This simple extension reads the content of your clipboard and then determines what kind of file you are trying to embed.
 
-Trigger via the Command Palette using the command 'Paste Embed from clipboard'.
+Trigger via the Command Palette using the command 'Paste Embed from clipboard'. Or, use the keyboard shortcut 'shift-alt-e'.
 
 It will automatically recognise:
 
@@ -19,4 +19,5 @@ It will automatically recognise:
 Let me know if there are other formats that need to be added. I can also update if Roam Research adds more {{ shortcodes }}.
 
 TODO:
-1. implement a keyboard shortcut in addition to the Command Palette command.
+
+~~1. implement a keyboard shortcut in addition to the Command Palette command.~~
