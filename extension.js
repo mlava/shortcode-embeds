@@ -1,3 +1,5 @@
+let keyEventHandler = undefined;
+
 export default {
     onload: ({ extensionAPI }) => {
 
@@ -5,6 +7,13 @@ export default {
             label: "Paste Embed from clipboard",
             callback: () => embedClip()
         });
+
+        keyEventHandler=function(e){
+            if (e.key.toLowerCase() === 'e' && e.shiftKey && e.altKey) {
+                embedClip();
+            }
+        }
+        window.addEventListener('keydown',keyEventHandler, false);
 
         async function embedClip() {
             const clipText = await navigator.clipboard.readText();
@@ -15,7 +24,7 @@ export default {
                 let q = `[:find (pull ?page [:node/title :block/string :block/uid ]) :where [?page :block/uid "${startBlock}"]  ]`;
                 var info = await window.roamAlphaAPI.q(q);
             }
-            console.info(info, clipText);
+            //console.info(info, clipText);
             const videoRegex = /^https?:\/\/(.+\/)+.+(\.(avi|mpg|mpeg|mov|mkv|mp4|wmv|webm))$/;
             const vimeoRegex = /^(http|https)?:\/\/(www\.)?vimeo.com.+/;
             const imageRegex = /^https?:\/\/(.+\/)+.+(\.(jpg|jpeg|bmp|gif|png|tiff|webp))$/;
@@ -60,6 +69,7 @@ export default {
         window.roamAlphaAPI.ui.commandPalette.removeCommand({
             label: 'Paste Embed from clipboard'
         });
+        window.removeEventListener('keydown',keyEventHandler, false);
     }
 }
 
