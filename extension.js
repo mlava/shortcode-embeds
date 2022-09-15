@@ -9,7 +9,7 @@ export default {
         });
 
         keyEventHandler=function(e){
-            if (e.key.toLowerCase() === 'e' && e.shiftKey && e.altKey) {
+            if (e.code === 'KeyE' && e.shiftKey && e.altKey) {
                 embedClip();
             }
         }
