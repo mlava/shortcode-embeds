@@ -24,7 +24,7 @@ export default {
                 let q = `[:find (pull ?page [:node/title :block/string :block/uid ]) :where [?page :block/uid "${startBlock}"]  ]`;
                 var info = await window.roamAlphaAPI.q(q);
             }
-            //console.info(info, clipText);
+            
             const videoRegex = /^https?:\/\/(.+\/)+.+(\.(avi|mpg|mpeg|mov|mkv|mp4|wmv|webm))$/;
             const vimeoRegex = /^(http|https)?:\/\/(www\.)?vimeo.com.+/;
             const imageRegex = /^https?:\/\/(.+\/)+.+(\.(jpg|jpeg|bmp|gif|png|tiff|webp))$/;
