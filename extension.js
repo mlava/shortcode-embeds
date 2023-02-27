@@ -3,23 +3,16 @@ let keyEventHandler = undefined;
 export default {
     onload: ({ extensionAPI }) => {
 
-        window.roamAlphaAPI.ui.commandPalette.addCommand({
+        extensionAPI.ui.commandPalette.addCommand({
             label: "Paste Embed from clipboard",
             callback: () => embedClip()
         });
-
-        keyEventHandler=function(e){
-            if (e.code === 'KeyE' && e.shiftKey && e.altKey) {
-                embedClip();
-            }
-        }
-        window.addEventListener('keydown',keyEventHandler, false);
 
         async function embedClip() {
             const clipText = await navigator.clipboard.readText();
             var startBlock = await window.roamAlphaAPI.ui.getFocusedBlock()?.["block-uid"];
             if (!startBlock) {
-                alert("Your cursor must be within a block to create as a task in Todoist")
+                alert("Please place your cursor in a block to embed in your graph")
             } else {
                 let q = `[:find (pull ?page [:node/title :block/string :block/uid ]) :where [?page :block/uid "${startBlock}"]  ]`;
                 var info = await window.roamAlphaAPI.q(q);
@@ -66,10 +59,7 @@ export default {
         }
     },
     onunload: () => {
-        window.roamAlphaAPI.ui.commandPalette.removeCommand({
-            label: 'Paste Embed from clipboard'
-        });
-        window.removeEventListener('keydown',keyEventHandler, false);
+        // nothing left here
     }
 }
 
