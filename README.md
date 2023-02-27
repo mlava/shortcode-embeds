@@ -1,6 +1,9 @@
 This simple extension reads the content of your clipboard and then determines what kind of file you are trying to embed.
 
-Trigger via the Command Palette using the command 'Paste Embed from clipboard'. Or, use the keyboard shortcut 'shift-alt-e'.
+**NEW:**
+- Now compatible with the new user-defined hotkeys function - see Hotkeys option in Roam Research Settings
+
+Trigger via the Command Palette using the command 'Paste Embed from clipboard'. Or, configure a keyboard shortcut in Settings > Hotkeys.
 
 It will automatically recognise:
 
