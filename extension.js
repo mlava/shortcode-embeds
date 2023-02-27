@@ -1,5 +1,3 @@
-let keyEventHandler = undefined;
-
 export default {
     onload: ({ extensionAPI }) => {
 
@@ -59,7 +57,7 @@ export default {
         }
     },
     onunload: () => {
-        // nothing left here
+        // nothing left here!
     }
 }
 
