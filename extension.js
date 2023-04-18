@@ -1,6 +1,5 @@
 export default {
     onload: ({ extensionAPI }) => {
-
         extensionAPI.ui.commandPalette.addCommand({
             label: "Paste Embed from clipboard",
             callback: () => embedClip()
@@ -31,6 +30,11 @@ export default {
             } else {
                 if (clipText.match("youtu")) { // youtube
                     embedString = "{{youtube: " + clipText + "}}";
+                } else if (clipText.match("wikipedia")) { // convert wikipedia link to mobile version
+                    const regex = /(https:\/\/[a-z]{2}.)(wikipedia.org\/.+)/g;
+                    const subst = `$1m.$2`;
+                    const result = clipText.replace(regex, subst);
+                    embedString = "{{iframe: " + result + "}}";
                 } else if (vimeoRegex.test(clipText)) { // vimeo
                     embedString = "{{[[video]]: " + clipText + "}}";
                 } else if (videoRegex.test(clipText)) { // video but not youtube or vimeo
