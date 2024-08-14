@@ -1,8 +1,7 @@
 This simple extension reads the content of your clipboard and then determines what kind of file you are trying to embed.
 
 **NEW:**
-- convert Instagram links to embedded iframe code
-- convert TikTok links to embedded iframe code
+- convert Instagram, Pinterest and TikTok links to embedded iframe code
 - convert Wikipedia links to mobile Wikipedia for better iframe experience
 - Now compatible with the new user-defined hotkeys function - see Hotkeys option in Roam Research Settings
 
@@ -19,6 +18,7 @@ It will automatically recognise:
 - images for ![](url)
   - jpg|jpeg|bmp|gif|png|tiff|webp
 - Instagram images
+- Pinterest pins
 - audio files for {{[[audio]]: url}}
   - mp3|wav|aiff|aac|ogg|wma|flac|alac
 - video files for {{[[video]]: url}}

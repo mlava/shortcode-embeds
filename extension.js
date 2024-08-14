@@ -19,6 +19,7 @@ export default {
             const vimeoRegex = /^(http|https)?:\/\/(www\.)?vimeo.com.+/;
             const imageRegex = /^https?:\/\/(.+\/)+.+(\.(jpg|jpeg|bmp|gif|png|tiff|webp))$/;
             const instagramRegex = /\.+instagram\.com.*?\/p\/(.*)\//;
+            const pinterestRegex = /\.+pinterest.*?\/pin\/(.*)\//;
             const tiktokRegex = /\.+tiktok\.com.*?\/video\/(.*)\/?/;
             const audioRegex = /^https?:\/\/(.+\/)+.+(\.(mp3|wav|aiff|aac|ogg|wma|flac|alac))$/;
             const figmaRegex = /https:\/\/([\w\.-]+\.)?figma.com\/(file|proto)\/([0-9a-zA-Z]{22,128})(?:\/.*)?$/;
@@ -49,6 +50,9 @@ export default {
                 } else if (instagramRegex.test(clipText)) { // instagram
                     let code = clipText.match(instagramRegex);
                     embedString = "{{[[iframe]]: https://www.instagram.com/p/" + code[1] + "/embed}}";
+                } else if (pinterestRegex.test(clipText)) { // instagram
+                    let code = clipText.match(pinterestRegex);
+                    embedString = "{{[[iframe]]: https://assets.pinterest.com/ext/embed.html?id=" + code[1] + "}}";
                 } else if (audioRegex.test(clipText)) { // audio
                     embedString = "{{[[audio]]: " + clipText + "}}";
                 } else if (clipText.match(/^https?:\/\/(.+\/)+.+(\.(pdf))$/)) { // pdf
