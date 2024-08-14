@@ -1,6 +1,8 @@
 This simple extension reads the content of your clipboard and then determines what kind of file you are trying to embed.
 
 **NEW:**
+- convert Instagram links to embedded iframe code
+- convert TikTok links to embedded iframe code
 - convert Wikipedia links to mobile Wikipedia for better iframe experience
 - Now compatible with the new user-defined hotkeys function - see Hotkeys option in Roam Research Settings
 
@@ -10,7 +12,7 @@ It will automatically recognise:
 
 - YouTube videos for {{youtube: url}}
 - Vimeo videos for {{[[video]]: url}}
-- Tiktok videos
+- TikTok videos
 - Figma diagrams for{{figma: url}}
 - PDFs for {{pdf: url}}
 - websites (for iframe embed) for {{iframe: url}}
