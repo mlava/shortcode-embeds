@@ -16,6 +16,7 @@ export default {
             }
 
             const videoRegex = /^https?:\/\/(.+\/)+.+(\.(avi|mpg|mpeg|mov|mkv|mp4|wmv|webm))$/;
+            const ytShortsRegex = /^(.+)shorts\/(.+)$/gm;
             const vimeoRegex = /^(http|https)?:\/\/(www\.)?vimeo.com.+/;
             const imageRegex = /^https?:\/\/(.+\/)+.+(\.(jpg|jpeg|bmp|gif|png|tiff|webp))$/;
             const instagramRegex = /\.+instagram\.com.*?\/p\/(.*)\//;
@@ -31,7 +32,11 @@ export default {
                 alert('Please make sure that the clipboard contains a valid url');
                 embedState = false;
             } else {
-                if (clipText.match("youtu")) { // youtube
+                if (ytShortsRegex.test(clipText)) {
+                    const subst = `$1watch?v=$2`;
+                    const result = clipText.replace(ytShortsRegex, subst);
+                    embedString = "{{youtube: " + result + "}}";
+                } else if (clipText.match("youtu")) { // youtube
                     embedString = "{{youtube: " + clipText + "}}";
                 } else if (clipText.match("wikipedia")) { // convert wikipedia link to mobile version
                     const regex = /(https:\/\/[a-z]{2}.)(wikipedia.org\/.+)/g;

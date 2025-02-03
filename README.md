@@ -1,6 +1,7 @@
 This simple extension reads the content of your clipboard and then determines what kind of file you are trying to embed.
 
 **NEW:**
+- convert YouTube shorts videos to embeddable YouTube links
 - convert Instagram, Pinterest and TikTok links to embedded iframe code
 - convert Wikipedia links to mobile Wikipedia for better iframe experience
 - Now compatible with the new user-defined hotkeys function - see Hotkeys option in Roam Research Settings
