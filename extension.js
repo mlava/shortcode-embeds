@@ -16,7 +16,7 @@ export default {
             }
 
             const videoRegex = /^https?:\/\/(.+\/)+.+(\.(avi|mpg|mpeg|mov|mkv|mp4|wmv|webm))$/;
-            const ytShortsRegex = /^(.+)shorts\/(.+)$/gm;
+            const ytShortsRegex = /^(.+youtube.+\/)shorts\/(.+)$/gm;
             const vimeoRegex = /^(http|https)?:\/\/(www\.)?vimeo.com.+/;
             const imageRegex = /^https?:\/\/(.+\/)+.+(\.(jpg|jpeg|bmp|gif|png|tiff|webp))$/;
             const instagramRegex = /\.+instagram\.com.*?\/p\/(.*)\//;
