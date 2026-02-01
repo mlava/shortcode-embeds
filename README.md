@@ -1,4 +1,4 @@
-# Shortcode Embeds (Roam Extension)
+# Shortcode Embeds
 
 Paste a link, Mermaid code, or Excalidraw JSON from your clipboard and get a Roam-friendly embed inserted into the focused block.
 
