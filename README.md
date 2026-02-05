@@ -50,8 +50,23 @@ The following are recognized and converted to the preferred Roam embed where pos
 - Audio files -> `{{[[audio]]: url}}`
 - Video files -> `{{[[video]]: url}}`
 - Images -> `![](url)`
+- PDF files -> `{{pdf: url}}`
 - Generic oEmbed via noembed.com (late-stage fallback)
 - Final fallback -> `{{iframe: url}}`
+
+## Settings
+
+You can configure these in the Roam Depot settings panel for the extension.
+
+- Preserve original block text
+  - When enabled, existing text in the focused block is moved into a child block before inserting the embed.
+  - Default: on.
+- Allow third-party oEmbed
+  - When enabled, the extension may call third-party oEmbed providers (e.g. SoundCloud oEmbed and noembed.com) to resolve richer embeds.
+  - Default: off.
+- Allow oEmbed in batch paste
+  - When enabled, batch pastes may call third-party oEmbed providers. This can be slower.
+  - Default: off.
 
 ## Examples
 
@@ -102,13 +117,15 @@ If the clipboard contains multiple URLs:
 ## Limitations and notes
 
 - A focused block is required. The extension will warn if no block is focused.
-- The focused block is always overwritten. This is by design for this workflow.
+- The focused block is preserved by default. You can disable "Preserve original block text" if you prefer the original overwrite behaviour.
+- If preservation fails (for example due to a transient Roam API error), the paste is cancelled to avoid data loss.
 - After insert, the extension creates a new empty sibling block to keep the page editable.
 - Clipboard access depends on browser permissions.
 - Some sites block iframes; those embeds may not render.
 - Mermaid rendering uses Roam's bundled Mermaid (observed version 11.0.3 as of Jan 31, 2026). Newer Mermaid-only syntax may not render.
 - oEmbed requests (SoundCloud/noembed) are network calls and can fail; fallbacks are used where possible.
-- Privacy note: SoundCloud and noembed.com are contacted to resolve embeds, which may expose the URL being embedded to those services.
+- Google Maps short links (`maps.app.goo.gl`) may be resolved via a quick network request before embedding.
+- Privacy note: third-party oEmbed is off by default. When enabled, SoundCloud and noembed.com are contacted to resolve embeds, which may expose the URL being embedded to those services.
 
 ## Suggestions / Requests
 

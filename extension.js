@@ -1,5 +1,6 @@
 let toastCleanup = null;
 let toastHideTimer = null;
+let oembedNoticeShown = false;
 
 export default {
     onload: ({ extensionAPI }) => {
@@ -43,6 +44,8 @@ export default {
             // Mermaid: clipboard is code, not URL
             const mermaidLines = extractMermaid(clipText);
             if (mermaidLines) {
+                const preserved = await maybePreserveFocusedBlockText(extensionAPI, focusedUid);
+                if (!preserved) return;
                 await window.roamAlphaAPI.updateBlock({
                     block: { uid: focusedUid, string: "{{mermaid}}", open: false },
                 });
@@ -60,6 +63,8 @@ export default {
 
             const excalidraw = parseExcalidraw(clipText);
             if (excalidraw) {
+                const preserved = await maybePreserveFocusedBlockText(extensionAPI, focusedUid);
+                if (!preserved) return;
                 await importExcalidrawToRoam({
                     targetUid: focusedUid,
                     excalidraw,
@@ -80,6 +85,8 @@ export default {
             if (!urls.length) {
                 // If it's not a URL and not mermaid, keep the old behavior: warn + insert text
                 toast("Clipboard did not contain a valid URL. Inserted as plain text.");
+                const preserved = await maybePreserveFocusedBlockText(extensionAPI, focusedUid);
+                if (!preserved) return;
                 await window.roamAlphaAPI.updateBlock({
                     block: { uid: focusedUid, string: clipText, open: true },
                 });
@@ -93,12 +100,16 @@ export default {
                 urls = urls.slice(0, maxUrls);
             }
 
+            const embedOptions = getEmbedOptions(extensionAPI, urls.length);
+
             // Single URL -> replace focused block
             if (urls.length === 1) {
                 const url = normalizeUrl(urls[0]);
-                const { embedString, note } = await buildEmbedString(url, mode);
+                const { embedString, note } = await buildEmbedString(url, mode, embedOptions);
 
                 const finalString = embedString || `[${url}](${url})`;
+                const preserved = await maybePreserveFocusedBlockText(extensionAPI, focusedUid);
+                if (!preserved) return;
                 await window.roamAlphaAPI.updateBlock({
                     block: { uid: focusedUid, string: finalString, open: true },
                 });
@@ -111,12 +122,14 @@ export default {
             }
 
             // Multiple URLs -> insert children under focused block
+            const preserved = await maybePreserveFocusedBlockText(extensionAPI, focusedUid);
+            if (!preserved) return;
             await window.roamAlphaAPI.updateBlock({
                 block: { uid: focusedUid, string: "Embedded Links", open: true },
             });
             for (const u of urls) {
                 const url = normalizeUrl(u);
-                const { embedString } = await buildEmbedString(url, mode);
+                const { embedString } = await buildEmbedString(url, mode, embedOptions);
                 const finalString = embedString || `[${url}](${url})`;
 
                 await window.roamAlphaAPI.createBlock({
@@ -132,7 +145,7 @@ export default {
             await createSiblingAndFocus(focusedUid);
         }
 
-        async function buildEmbedString(url, mode) {
+        async function buildEmbedString(url, mode, options = {}) {
             if (mode === "link") return { embedString: `[${url}](${url})`, note: "Inserted as link." };
             if (mode === "iframe") return { embedString: `{{iframe: ${url}}}`, note: "Inserted as iframe." };
 
@@ -149,7 +162,7 @@ export default {
                 tryTikTok,
                 tryInstagram,
                 tryPinterest,
-                trySoundCloudOEmbed,      // async
+                ...(options.allowThirdPartyOembed ? [trySoundCloudOEmbed] : [(u) => trySoundCloudPlayerFallback(u, options)]), // async
                 tryGoogleMaps,
                 tryTwitch,
                 tryCodePen,
@@ -163,8 +176,9 @@ export default {
                 tryAudio,
                 tryVideoFile,
                 tryImage,
-                tryGenericOEmbedNoembed,  // late-stage magic
-                tryWebsiteIframe,         // final fallback
+                tryPdf,
+                ...(options.allowThirdPartyOembed ? [tryGenericOEmbedNoembed] : []), // late-stage magic
+                (u) => tryWebsiteIframe(u, options), // final fallback
             ];
 
             for (let i = 0; i < handlers.length; i += 1) {
@@ -182,16 +196,20 @@ export default {
         function tryYouTubeVideoOrShorts(url) {
             if (!/youtu\.?be|youtube\.com/i.test(url)) return null;
 
+            const listId = getUrlParam(url, "list");
+
             const shortsMatch = url.match(/^https?:\/\/(www\.)?youtube\.com\/shorts\/([^?/#]+)/i);
             if (shortsMatch) {
                 const id = shortsMatch[2];
-                return { embedString: `{{youtube: https://www.youtube.com/watch?v=${id}}}`, note: "YouTube (shorts → watch) embed." };
+                const listPart = listId ? `&list=${encodeURIComponent(listId)}` : "";
+                return { embedString: `{{youtube: https://www.youtube.com/watch?v=${id}${listPart}}}`, note: "YouTube (shorts → watch) embed." };
             }
 
             const shortDomain = url.match(/^https?:\/\/youtu\.be\/([^?/#]+)/i);
             if (shortDomain) {
                 const id = shortDomain[1];
-                return { embedString: `{{youtube: https://www.youtube.com/watch?v=${id}}}`, note: "YouTube (youtu.be → watch) embed." };
+                const listPart = listId ? `&list=${encodeURIComponent(listId)}` : "";
+                return { embedString: `{{youtube: https://www.youtube.com/watch?v=${id}${listPart}}}`, note: "YouTube (youtu.be → watch) embed." };
             }
 
             return { embedString: `{{youtube: ${url}}}`, note: "YouTube embed." };
@@ -200,8 +218,9 @@ export default {
         function tryYouTubePlaylist(url) {
             if (!/youtube\.com|youtu\.be/i.test(url)) return null;
 
-            // playlist link: https://www.youtube.com/playlist?list=PL...
-            // watch link with list: https://www.youtube.com/watch?v=...&list=PL...
+            // Playlist page link: https://www.youtube.com/playlist?list=PL...
+            if (!/\/playlist\b/i.test(url)) return null;
+
             const listId = getUrlParam(url, "list");
             if (!listId) return null;
 
@@ -215,7 +234,7 @@ export default {
 
             // Convert reddit.com/r/{sub}/comments/{postId}/... to redditmedia embed
             // redditmedia supports embedding the whole thread view
-            const m = url.match(/^https?:\/\/(www\.)?reddit\.com\/r\/([^/]+)\/comments\/([^/]+)\//i);
+            const m = url.match(/^https?:\/\/(www\.)?reddit\.com\/r\/([^/]+)\/comments\/([^/]+)(\/|$)/i);
             if (!m) {
                 // Also accept short /comments/{id} without /r/ (rare), fallback to iframe
                 return { embedString: `{{iframe: ${url}}}`, note: "Reddit iframe (best-effort)." };
@@ -232,7 +251,7 @@ export default {
         function tryWikipediaMobileIframe(url) {
             if (!/wikipedia\.org/i.test(url)) return null;
 
-            const m = url.match(/^https?:\/\/([a-z]{2,3})\.wikipedia\.org\/(.+)$/i);
+            const m = url.match(/^https?:\/\/([a-z-]{2,12})\.wikipedia\.org\/(.+)$/i);
             if (m) {
                 const lang = m[1];
                 const path = m[2];
@@ -310,9 +329,20 @@ export default {
             }
         }
 
-        function tryGoogleMaps(url) {
+        function trySoundCloudPlayerFallback(url, options = {}) {
+            if (!/^https?:\/\/(www\.)?soundcloud\.com\//i.test(url)) return null;
+            const fallback = `https://w.soundcloud.com/player/?url=${encodeURIComponent(url)}`;
+            maybeToastOembedDisabled(url, options);
+            return { embedString: `{{iframe: ${fallback}}}`, note: "SoundCloud embed (player fallback)." };
+        }
+
+        async function tryGoogleMaps(url) {
             if (!/google\.[^/]+\/maps/i.test(url) && !/maps\.app\.goo\.gl/i.test(url)) return null;
             if (/\/maps\/embed\?/i.test(url)) return { embedString: `{{iframe: ${url}}}`, note: "Google Maps embed." };
+            if (/maps\.app\.goo\.gl/i.test(url)) {
+                const resolved = await resolveFinalUrl(url, 1500);
+                return { embedString: `{{iframe: ${resolved}}}`, note: "Google Maps iframe (best-effort)." };
+            }
             return { embedString: `{{iframe: ${url}}}`, note: "Google Maps iframe (best-effort)." };
         }
 
@@ -349,9 +379,12 @@ export default {
             if (!m) return null;
             const maybeUser = m[4] ? m[2] : null;
             const id = m[4] ? m[4] : m[2];
+            if (/\/embedded(\/|$)/i.test(url)) {
+                return { embedString: `{{iframe: ${url}}}`, note: "JSFiddle embed." };
+            }
             const embed = maybeUser
-                ? `https://jsfiddle.net/${maybeUser}/${id}/embedded/result/`
-                : `https://jsfiddle.net/${id}/embedded/result/`;
+                ? `https://jsfiddle.net/${maybeUser}/${id}/embedded/`
+                : `https://jsfiddle.net/${id}/embedded/`;
             return { embedString: `{{iframe: ${embed}}}`, note: "JSFiddle embed." };
         }
 
@@ -404,6 +437,11 @@ export default {
             return { embedString: `![](${url})`, note: "Image embed." };
         }
 
+        function tryPdf(url) {
+            if (!/\.pdf(\?|#|$)/i.test(url)) return null;
+            return { embedString: `{{pdf: ${url}}}`, note: "PDF embed." };
+        }
+
         async function tryGenericOEmbedNoembed(url) {
             // Late-stage: attempt oEmbed via noembed (supports lots of providers)
             // This is intentionally AFTER core handlers, so it won't override your preferred formats.
@@ -428,7 +466,8 @@ export default {
             }
         }
 
-        function tryWebsiteIframe(url) {
+        function tryWebsiteIframe(url, options = {}) {
+            maybeToastOembedDisabled(url, options);
             return { embedString: `{{iframe: ${url}}}`, note: "Website iframe." };
         }
 
@@ -491,7 +530,9 @@ export default {
             const files = excalidraw.files && typeof excalidraw.files === "object" ? excalidraw.files : {};
 
             const uid = targetUid;
-            const instanceId = (crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()));
+            const instanceId = (crypto?.randomUUID
+                ? crypto.randomUUID()
+                : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
 
             await window.roamAlphaAPI.updateBlock({
                 block: {
@@ -584,6 +625,18 @@ export default {
             }
         }
 
+        async function resolveFinalUrl(url, timeoutMs = 1500) {
+            try {
+                let res = await fetchWithTimeout(url, { method: "HEAD", redirect: "follow" }, timeoutMs);
+                if (!res.ok) {
+                    res = await fetchWithTimeout(url, { method: "GET", redirect: "follow" }, timeoutMs);
+                }
+                return res?.url || url;
+            } catch {
+                return url;
+            }
+        }
+
         // -------------------- Toast --------------------
 
         function toast(message) {
@@ -639,9 +692,116 @@ export default {
             return !!(api && api.ui?.getFocusedBlock && api.updateBlock && api.createBlock && api.util?.generateUID);
         }
 
+        function getEmbedOptions(extensionAPI, urlCount) {
+            const allowThirdPartyOembed = getSettingBool(extensionAPI, "allow-third-party-oembed", false);
+            const allowBatchOembed = getSettingBool(extensionAPI, "allow-oembed-in-batch", false);
+            const isBatch = urlCount > 1;
+            return {
+                allowThirdPartyOembed: allowThirdPartyOembed && (!isBatch || allowBatchOembed),
+                isBatch,
+            };
+        }
+
+        async function maybePreserveFocusedBlockText(extensionAPI, focusedUid) {
+            const shouldPreserve = getSettingBool(extensionAPI, "preserve-original-block-text", true);
+            if (!shouldPreserve) return true;
+
+            const api = window.roamAlphaAPI;
+            if (!api?.data?.pull || !api?.createBlock) return false;
+
+            let existing = "";
+            try {
+                const res = api.data.pull("[:block/string]", [":block/uid", focusedUid]);
+                existing = res?.[":block/string"] || "";
+            } catch {
+                toast("Could not preserve existing text. Paste cancelled.");
+                return false;
+            }
+
+            const text = String(existing).trim();
+            if (!text) return true;
+            if (!hasVisibleContent(text)) return true;
+
+            try {
+                await api.createBlock({
+                    location: { "parent-uid": focusedUid, order: "last" },
+                    block: { string: text },
+                });
+                return true;
+            } catch {
+                toast("Could not preserve existing text. Paste cancelled.");
+                return false;
+            }
+        }
+
+        function hasVisibleContent(text) {
+            try {
+                return /[\p{L}\p{N}]/u.test(String(text || ""));
+            } catch {
+                return /\S/.test(String(text || ""));
+            }
+        }
+
+        function maybeToastOembedDisabled(url, options = {}) {
+            if (options?.allowThirdPartyOembed) return;
+            if (options?.isBatch) return;
+            if (oembedNoticeShown) return;
+            if (!isLikelyOembedProvider(url)) return;
+            oembedNoticeShown = true;
+            toast("Third-party oEmbed is off. Turn it on in settings for richer embeds.");
+        }
+
+        function isLikelyOembedProvider(url) {
+            if (!url) return false;
+            return /soundcloud\.com|vimeo\.com|youtu\.be|youtube\.com|twitter\.com|x\.com|flickr\.com|spotify\.com|speakerdeck\.com|slideshare\.net|mixcloud\.com|bandcamp\.com|twitch\.tv|tiktok\.com|instagram\.com|reddit\.com|loom\.com|pinterest\.[^/]+/i.test(url);
+        }
+
+        function getSettingBool(extensionAPI, key, defaultValue) {
+            const raw = extensionAPI?.settings?.get?.(key);
+            if (raw === undefined || raw === null) return defaultValue;
+            if (typeof raw === "boolean") return raw;
+            if (raw === "true") return true;
+            if (raw === "false") return false;
+            return defaultValue;
+        }
+
+        function buildSettingsConfig(extensionAPI) {
+            const preserveOriginal = getSettingBool(extensionAPI, "preserve-original-block-text", true);
+            const allowThirdPartyOembed = getSettingBool(extensionAPI, "allow-third-party-oembed", false);
+            const allowBatchOembed = getSettingBool(extensionAPI, "allow-oembed-in-batch", false);
+
+            return {
+                tabTitle: "Shortcode Embed",
+                settings: [
+                    {
+                        id: "preserve-original-block-text",
+                        name: "Preserve original block text",
+                        description: "When enabled, existing block text is moved into a child block before inserting an embed.",
+                        action: { type: "switch", value: preserveOriginal },
+                    },
+                    {
+                        id: "allow-third-party-oembed",
+                        name: "Allow third-party oEmbed",
+                        description: "When enabled, pasted URLs may be sent to third-party oEmbed providers for richer embeds.",
+                        action: { type: "switch", value: allowThirdPartyOembed },
+                    },
+                    {
+                        id: "allow-oembed-in-batch",
+                        name: "Allow oEmbed in batch paste",
+                        description: "When enabled, batch pastes may call third-party oEmbed providers. This can be slower.",
+                        action: { type: "switch", value: allowBatchOembed },
+                    },
+                ],
+            };
+        }
+
+        if (extensionAPI?.settings?.panel?.create) {
+            extensionAPI.settings.panel.create(buildSettingsConfig(extensionAPI));
+        }
+
         async function createSiblingAndFocus(focusedUid) {
             const api = window.roamAlphaAPI;
-            if (!api?.data?.pull || !api?.createBlock || !api?.util?.generateUID) {
+            if (!api?.data?.pull || !api?.data?.q || !api?.createBlock || !api?.util?.generateUID) {
                 return null;
             }
 
@@ -649,11 +809,14 @@ export default {
             let order = null;
             try {
                 const res = api.data.pull(
-                    "[:block/uid :block/order {:block/parents [:block/uid]} {:block/page [:block/uid]}]",
+                    "[:block/uid :block/order {:block/page [:block/uid]}]",
                     [":block/uid", focusedUid]
                 );
-                const parents = res?.[":block/parents"];
-                parentUid = Array.isArray(parents) && parents.length ? parents[0]?.[":block/uid"] : null;
+                const parentRes = api.data.q(
+                    "[:find ?puid :in $ ?uid :where [?b :block/uid ?uid] [?p :block/children ?b] [?p :block/uid ?puid]]",
+                    focusedUid
+                );
+                parentUid = Array.isArray(parentRes) && parentRes.length ? parentRes[0]?.[0] : null;
                 if (!parentUid) {
                     parentUid = res?.[":block/page"]?.[":block/uid"] || null;
                 }
@@ -687,6 +850,7 @@ export default {
     onunload: () => {
         toastCleanup?.();
         toastCleanup = null;
+        oembedNoticeShown = false;
     },
 };
 
